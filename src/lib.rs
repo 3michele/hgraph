@@ -21,7 +21,7 @@ type EdgeID = u64;
 type IterEdges<'a> = std::collections::hash_map::Values<'a, u64, Hyperedge>;
 
 /// Core struct to represent a hypergraph.   
-/// Hypergraphs are a generalization of graphs, where each edge can connect multiple nodes 
+/// Hypergraphs are a generalization of graphs, where each edge can connect multiple nodes
 /// (see [Hypergraph](https://en.wikipedia.org/wiki/Hypergraph)).
 ///
 /// # Design Overview
@@ -37,26 +37,25 @@ type IterEdges<'a> = std::collections::hash_map::Values<'a, u64, Hyperedge>;
 ///   reduces memory usage by only storing identifiers in `incidence_list`, allowing nodes to reference hyperedges without  
 ///   duplicating data. Thus, the hypergraph can efficiently handle large collections of nodes and edges without excessive   
 ///   memory consumption.
-/// 
+///
 /// # User Interaction
 /// The user communicates via hyperedges, not `EdgeID`'s, meaning that he will provide a concrete set of nodes whenever he  
 /// calls a method which requires a hyperedge. Internally, the hypergraph computes the `EdgeID` for the hyperedge provided,  
-/// and operates on that ID. 
+/// and operates on that ID.
 pub struct Hypergraph {
     /// States if the hypergraphs is weighted.
     weighted: bool,
 
     /// Maps each node to a set of `EdgeID`s of the hyperedges it connects to.
-    /// This efficient storage mechanism reduces memory usage by avoiding the need 
+    /// This efficient storage mechanism reduces memory usage by avoiding the need
     /// to store full sets of edges for each node, enabling faster operations.
     incidence_list: AHashMap<Node, AHashSet<EdgeID>>,
 
     /// Maps each `EdgeID` to its associated `Hyperedge`.
-    /// By storing hyperedges indexed by their unique IDs, this design allows for 
+    /// By storing hyperedges indexed by their unique IDs, this design allows for
     /// rapid access to hyperedge data without redundant storage, with a concrete `O(1)` hash.
     edge_list: AHashMap<EdgeID, Hyperedge>,
 }
-
 
 impl Hypergraph {
     /*
@@ -82,7 +81,7 @@ impl Hypergraph {
     }
 
     /// `type Node = i64`
-    /// 
+    ///
     /// Creates an unweighted `Hypergraph` from a list of hyperedges.  
     ///
     /// For every duplicate in `_edge_list` there will be only an hyperedge.  
@@ -106,7 +105,7 @@ impl Hypergraph {
     }
 
     /// `type Node = i64`
-    /// 
+    ///
     /// Creates a weighted `Hypergraph` from a list of hyperedges.
     ///
     /// Let `n`, `m` be the length of `_edge_list` and `weights` respectively. Consider this three cases:   
@@ -224,7 +223,7 @@ impl Hypergraph {
     }
 
     /// `type Node = i64`
-    /// 
+    ///
     /// Sets the weight of a specific hyperedge.
     ///
     /// # Parameters
@@ -345,20 +344,20 @@ impl Hypergraph {
     ///
     /// # Performance
     /// - `O(n)`, where `n` is the number of nodes of the hypergraph.
-    pub fn get_nodes(&self) -> Vec<Node>  {
+    pub fn get_nodes(&self) -> Vec<Node> {
         let mut res = Vec::new();
         self.incidence_list.keys().for_each(|node_id| {
             res.push(*node_id);
         });
-        res 
+        res
     }
 
     /// Returns a list with the hyperedges of the hypergraph.
-    /// 
-    /// # Returns 
+    ///
+    /// # Returns
     /// - `Vec<Hyperedge>` - The list with the copy of the hyperedges, with their weight.
-    /// 
-    /// # Performance 
+    ///
+    /// # Performance
     /// - `O(n*m)`, where `n` and `m` are the number nodes and hyperedges, respectively, of the hypergraph.
     pub fn get_edges(&self) -> Vec<Hyperedge> {
         let mut res = Vec::new();
@@ -366,15 +365,15 @@ impl Hypergraph {
         self.edge_list.values().for_each(|x| {
             res.push(x.clone());
         });
-        res 
+        res
     }
 
     /// Returns a list with the hyperedges of the hypergraph with a specific order.
-    /// 
-    /// # Returns 
+    ///
+    /// # Returns
     /// - `Vec<Hyperedge>` - The list with the copy of the hyperedges, with their weight.
-    /// 
-    /// # Performance 
+    ///
+    /// # Performance
     /// - `O(n*m)`, where `n` and `m` are the number nodes and hyperedges, respectively, of the hypergraph.
     pub fn get_edges_with_order(&self, order: usize) -> Vec<Hyperedge> {
         let mut res = Vec::new();
@@ -383,8 +382,8 @@ impl Hypergraph {
             if x.nodes.len() == order {
                 res.push(x.clone());
             }
-        }); 
-        res 
+        });
+        res
     }
 
     /// `type Node = i64`  
@@ -508,7 +507,11 @@ impl Hypergraph {
     ///
     /// # Performance
     /// - `O(m)`, where `m` is the number of hyperedges of the hyperegraph..
-    pub fn get_incident_edges_with_order(&self, node: Node, order: usize) -> Option<Vec<&Vec<Node>>> {
+    pub fn get_incident_edges_with_order(
+        &self,
+        node: Node,
+        order: usize,
+    ) -> Option<Vec<&Vec<Node>>> {
         match self.incidence_list.get(&node) {
             Some(incidence_list) => {
                 let mut res = Vec::new();
@@ -766,12 +769,12 @@ impl Hypergraph {
     }
 
     // =======================================================================
-    //                      We need to update the EdgeID'a        
+    //                      We need to update the EdgeID'a
     // =======================================================================
     /// `type Node = i64`.    
     ///
     /// Weakly removes a node from the hypergraph.  
-    /// 
+    ///
     /// Weakly deletion of node `v` from hypergraph `H = (V,E)` consists of removing `v` from `V` and from every hyperedge   
     /// `E` such that `v` is in `E`.  
     ///
@@ -798,16 +801,16 @@ impl Hypergraph {
             // O(m)
             for edge_id in edges.iter() {
                 // O(n)
-                let mut edge_now = self.edge_list.get(edge_id).unwrap().nodes.clone();
+                let mut edge_now = self.edge_list.get(edge_id).unwrap().clone();
 
                 // O(n)
-                self.remove_edge(&edge_now);
+                self.remove_edge(&edge_now.nodes);
 
                 // O(n)
-                edge_now.retain(|x| { *x != node });
+                edge_now.nodes.retain(|x| *x != node);
 
                 // O(n)
-                self.add_edge(&edge_now);
+                self.add_edge_weighted(&edge_now.nodes, edge_now.weight);
             }
 
             true
@@ -880,7 +883,7 @@ impl Hypergraph {
     /// `type Node = i64`    
     ///
     /// Strongly removes a list of nodes from the hypergraph.   
-    /// 
+    ///
     /// See `Hypergraph::strong_remove_node` for more details.  
     ///
     /// If the list provided contains nodes which are not in the hypergraph, nothing happens for them.
@@ -901,16 +904,16 @@ impl Hypergraph {
     }
 
     /// `type Node = i64`   
-    /// 
+    ///
     /// Returns a subhypergraph induced by the nodes in the list.   
-    /// 
+    ///
     /// # Parameters
     /// - `nodes` : `&Vec<Node>` - List of nodes to be included in the subhypergraph.
-    /// 
-    /// # Returns 
+    ///
+    /// # Returns
     /// - `Self` - Induced subhypergraph.  
-    /// 
-    /// # Performance 
+    ///
+    /// # Performance
     /// - `O(n*m)`, where `n` and `m` are the number of nodes and the number of hyperedges of the original hypergraph.
     pub fn subhypergraph(&self, nodes: &Vec<Node>) -> Self {
         let mut res = Self::new(self.weighted);
@@ -931,18 +934,18 @@ impl Hypergraph {
             }
         }
 
-        res 
+        res
     }
 
     /// Returns a subhypergraph with only the hyperedges with a specific order.
-    /// 
+    ///
     /// # Parameters
     /// - `nodes` : `&Vec<usize>` - List of orders.
-    /// 
-    /// # Returns 
+    ///
+    /// # Returns
     /// - `Self` - Induced subhypergraph.  
-    /// 
-    /// # Performance 
+    ///
+    /// # Performance
     /// - `O(n*m)`, where `n` and `m` are the number of nodes and the number of hyperedges of the original hypergraph.
     pub fn subhypergraph_by_orders(&self, orders: &Vec<usize>, keep_nodes: bool) -> Self {
         let mut res = Self::new(self.weighted);
@@ -966,26 +969,28 @@ impl Hypergraph {
             }
         }
 
-        res 
+        res
     }
 
     /// Returns the distribution of the orders of the hyperedges in the hypergraph.
-    /// 
-    /// # Returns 
+    ///
+    /// # Returns
     /// - `AHashMap<usize, usize>` - The dictionary which stores the orders as keys, and the number of occurrences for that   
     /// specific order as values.
-    /// 
-    /// # Performance 
+    ///
+    /// # Performance
     /// - `O(m)`, where `m` is the number of hyperedges in the hypergraph.
     pub fn distrbution_orders(&self) -> AHashMap<usize, usize> {
         let mut res = AHashMap::new();
 
         for hyperedge in self.edge_list.values() {
-            res.entry(hyperedge.nodes.len()).and_modify(|total: &mut usize| {
-                *total += 1;
-            }).or_insert(1);
+            res.entry(hyperedge.nodes.len())
+                .and_modify(|total: &mut usize| {
+                    *total += 1;
+                })
+                .or_insert(1);
         }
-        res 
+        res
     }
 
     /// `type IterEdges<'a> = std::collections::hash_map::Values<'a, u64, Hyperedge>`   
@@ -1042,9 +1047,6 @@ impl Hypergraph {
         self.edge_list.clear();
     }
 
-
-
-
     /*
     ===============================================================================
     |                       PRIVATE HELPER FUNCTIONS                              |
@@ -1097,7 +1099,7 @@ impl Hypergraph {
 
     /// `type EdgeID = u64`    
     /// `type Node = i64`
-    /// 
+    ///
     /// Effectively computes the edgeID for a Hyperedge.  
     ///
     /// # Parameters  
@@ -1118,16 +1120,16 @@ impl Hypergraph {
     }
 
     /// `type Node = i64`  
-    /// 
+    ///
     /// Effectively computes the conversion of an array to an hashset.
-    /// 
+    ///
     /// # Parameters
     /// - `array` : `&Vec<Node>` - Array to be converted.
-    /// 
-    /// # Returns 
+    ///
+    /// # Returns
     /// - `AHashSet<Node>` - The corresponding hashset.
-    /// 
-    /// # Performance 
+    ///
+    /// # Performance
     /// - `O(n)`, where `n` is the length of the array.
     fn compute_vec_to_set(array: &Vec<Node>) -> AHashSet<Node> {
         let mut res = AHashSet::new();
@@ -1139,7 +1141,6 @@ impl Hypergraph {
         res
     }
 }
-
 
 /*
     TODO

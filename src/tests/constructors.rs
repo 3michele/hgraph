@@ -35,5 +35,5 @@ pub fn test2() {
     mat.remove_node(-3);
     mat.remove_node(5);
 
-    println!("test2: {:?}", mat);
+    println!("test2 a: {:?}", mat);
 }

@@ -11,9 +11,6 @@ path = "src/lib.rs"
 name = "main"
 path = "src/binaries/main.rs"
 
-[[bin]]
-name = "main1"
-path = "src/binaries/main1.rs"
 
 [[test]]
 name = "constructors"
