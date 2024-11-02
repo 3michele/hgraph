@@ -1,0 +1,23 @@
+[package]
+name = "hypergraph_library"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "hypergraph_library"
+path = "src/lib.rs"
+
+[[bin]]
+name = "main"
+path = "src/binaries/main.rs"
+
+[[bin]]
+name = "main1"
+path = "src/binaries/main1.rs"
+
+[[test]]
+name = "constructors"
+path = "src/tests/constructors.rs"
+
+[dependencies]
+ahash = "0.8.11"
