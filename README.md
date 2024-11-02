@@ -19,10 +19,10 @@ hgraph = { git = "https://github.com/3michele/hgraph.git" }
 
 ## Usage 
 Here is a basic example of how to use the `hgraph` library:
+
 ```rust
 use hgraph::Hypergraph;
 
-rust
 // Creates a new weighted hypergraph
 let mut hypergraph = Hypergraph::new(true);
 
