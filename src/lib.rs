@@ -1,5 +1,5 @@
-pub mod hyperedge;
-pub mod hypergraph_traits;
+mod hyperedge;
+mod hypergraph_traits;
 
 // One of the fastest and secure non cryptographic hash for rust
 use ahash::{AHashMap, AHashSet, RandomState};
