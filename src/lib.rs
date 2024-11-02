@@ -1,7 +1,7 @@
 pub mod hyperedge;
 pub mod hypergraph_traits;
 
-// Best hash for rust
+// One of the fastest and secure non cryptographic hash for rust
 use ahash::{AHashMap, AHashSet, RandomState};
 
 use std::{
@@ -25,16 +25,43 @@ type EdgeID = u64;
 type IterEdges<'a> = std::collections::hash_map::Values<'a, u64, Hyperedge>;
 type IterNodes<'a> = std::collections::hash_map::Keys<'a, Node, AHashSet<EdgeID>>;
 
-/// Core struct to represent hypergraphs.  
+/// Core struct to represent a hypergraph.   
+/// Hypergraphs are a generalization of graphs, where each edge can connect multiple nodes 
+/// (see [Hypergraph](https://en.wikipedia.org/wiki/Hypergraph)).
 ///
-/// A hypergraph is a generalization of a graph in which an edge can join any number of vertices (see [Hypergraph](https://en.wikipedia.org/wiki/Hypergraph)).  
+/// # Design Overview
+/// This implementation optimizes for **memory efficiency** and **performance** using a **double-hashing** approach.
+///
+/// #### Hyperedge Identification
+///   Each hyperedge is represented as a set of nodes and is assigned a unique `EdgeID`, computed through an initial hash.  
+///   This unique identifier allows for `O(1)` accesses, and solves the performance overhead associated with repeatedly  
+///   hashing entire node collections, which would be `O(n)` on the length `n` of the collection.
+///     
+/// #### Efficient Storage  
+///   The `edge_list` hashmap stores hyperedges by mapping each `EdgeID` to its corresponding `Hyperedge`. This design   
+///   reduces memory usage by only storing identifiers in `incidence_list`, allowing nodes to reference hyperedges without  
+///   duplicating data. Thus, the hypergraph can efficiently handle large collections of nodes and edges without excessive   
+///   memory consumption.
+/// 
+/// # User Interaction
+/// The user communicates via hyperedges, not `EdgeID`, meaning that he will provide a concrete set of nodes whenever he  
+/// calls a method which requires a hyperedge. Internally, the hypergraph computes the `EdgeID` for the hyperedge provided,  
+/// and operates on that ID. 
 pub struct Hypergraph {
+    /// States if the hypergraphs is weighted.
     weighted: bool,
 
+    /// Maps each node to a set of `EdgeID`s of the hyperedges it connects to.
+    /// This efficient storage mechanism reduces memory usage by avoiding the need 
+    /// to store full sets of edges for each node, enabling faster operations.
     incidence_list: AHashMap<Node, AHashSet<EdgeID>>,
 
+    /// Maps each `EdgeID` to its associated `Hyperedge`.
+    /// By storing hyperedges indexed by their unique IDs, this design allows for 
+    /// rapid access to hyperedge data without redundant storage, with a concrete `O(1)` hash.
     edge_list: AHashMap<EdgeID, Hyperedge>,
 }
+
 
 impl Hypergraph {
     /*
@@ -59,16 +86,18 @@ impl Hypergraph {
         }
     }
 
+    /// `type Node = i64`
+    /// 
     /// Creates an unweighted `Hypergraph` from a list of hyperedges.  
     ///
     /// For every duplicate in `_edge_list` there will be only an hyperedge.  
     ///
     /// # Parameters
-    /// - `_edge_list`: (`&[Vec<i64>]`) - List of hyperedges, each represented as a vector of nodes.
+    /// - `_edge_list`: (`&[Vec<Node>]`) - List of hyperedges, each represented as a vector of nodes.
     ///
     /// # Returns
     /// - `Self` - A new instance of `Hypergraph`.
-    pub fn from(_edge_list: &[Vec<i64>]) -> Self {
+    pub fn from(_edge_list: &[Vec<Node>]) -> Self {
         let mut result = Self::new(false);
 
         for edge in _edge_list.iter() {
@@ -81,6 +110,8 @@ impl Hypergraph {
         result
     }
 
+    /// `type Node = i64`
+    /// 
     /// Creates a weighted `Hypergraph` from a list of hyperedges.
     ///
     /// Let `n`, `m` be the length of `_edge_list` and `weights` respectively. Consider this three cases:   
@@ -96,7 +127,7 @@ impl Hypergraph {
     ///
     /// # Returns
     /// - `Self` - A new instance of `Hypergraph`.
-    pub fn from_weighted(_edge_list: &[Vec<i64>], weights: &[f64]) -> Self {
+    pub fn from_weighted(_edge_list: &[Vec<Node>], weights: &[f64]) -> Self {
         let mut result = Self::new(true);
 
         let mut index_weigth = 0 as usize;
@@ -177,6 +208,8 @@ impl Hypergraph {
         }
     }
 
+    /// `type Node = i64`
+    /// 
     /// Sets the weight of a specific hyperedge.
     ///
     /// # Parameters
@@ -289,6 +322,7 @@ impl Hypergraph {
     }
 
     /// `type Node = i64`  
+    /// `type EdgeID = u64`
     /// `type IterNodes<'a> = std::collections::hash_map::Keys<'a, Node, AHashSet<EdgeID>>`   
     ///
     /// Gives an iterator through all the nodes of the hypergraph.

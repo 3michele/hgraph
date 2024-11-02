@@ -6,10 +6,27 @@ use std::{
     rc::Rc,
 };
 
+/// Represents a (weighted) hyperedge in a hypergraph.  
+/// 
+/// A hyperedge is an edge that can link any number of nodes, as opposed to standard graph edges that only   
+/// connect two nodes (see [Hypergraph](https://en.wikipedia.org/wiki/Hypergraph)).  
+///
+/// This struct is designed to work within a `Hypergraph` structure, where each hyperedge is uniquely   
+/// identified by an `EdgeID` and associated with a concrete set of nodes.
+/// 
+/// # See Also
+///
+/// For more information on hypergraphs and how they are stored, see the documentation for `Hypergraph`.
 pub struct Hyperedge {
+    /// A reference-counted, mutable vector of `Node`s (node IDs) connected by this hyperedge.  
+    /// This allows multiple parts of the program to share ownership of the node collection while enabling  
+    /// in-place modifications when needed.
     pub nodes: Rc<RefCell<Vec<Node>>>,
+
+    /// Optional weight for the hyperedge.
     pub weight: f64,
 }
+
 
 impl Hyperedge {
     /// Create a new instance of Hyperedge.
@@ -28,7 +45,10 @@ impl Hyperedge {
     /// Change the weight of this hyperedge.
     ///
     /// # Parameters
-    /// - `weight` : `f64` - New weight of the hyperedge
+    /// - `weight` : `f64` - The new weight.
+    /// 
+    /// # Returns 
+    /// - `()` 
     pub fn set_weight(&mut self, weight: f64) {
         self.weight = weight;
     }

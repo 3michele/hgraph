@@ -33,7 +33,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "hypergraph_library"
+name = "hgraph"
 version = "0.1.0"
 dependencies = [
  "ahash",

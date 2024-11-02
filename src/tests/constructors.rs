@@ -1,4 +1,4 @@
-use hypergraph_library::Hypergraph;
+use hgraph::Hypergraph;
 
 #[test]
 pub fn test1() {

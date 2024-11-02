@@ -1,10 +1,10 @@
 [package]
-name = "hypergraph_library"
+name = "hgraph"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "hypergraph_library"
+name = "hgraph"
 path = "src/lib.rs"
 
 [[bin]]
