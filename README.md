@@ -1,4 +1,4 @@
-# hrust
+# hgraph
 
 A flexible and extensible Rust-based hypergraph library.
 
