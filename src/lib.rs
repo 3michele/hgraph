@@ -4,11 +4,7 @@ pub mod hypergraph_traits;
 // One of the fastest and secure non cryptographic hash for rust
 use ahash::{AHashMap, AHashSet, RandomState};
 
-use std::{
-    cell::{Ref, RefCell},
-    hash::{BuildHasher, Hash, Hasher},
-    rc::Rc,
-};
+use std::hash::{BuildHasher, Hash, Hasher};
 
 use hyperedge::Hyperedge;
 
@@ -23,7 +19,6 @@ type Node = i64;
 type EdgeID = u64;
 
 type IterEdges<'a> = std::collections::hash_map::Values<'a, u64, Hyperedge>;
-type IterNodes<'a> = std::collections::hash_map::Keys<'a, Node, AHashSet<EdgeID>>;
 
 /// Core struct to represent a hypergraph.   
 /// Hypergraphs are a generalization of graphs, where each edge can connect multiple nodes 
@@ -44,7 +39,7 @@ type IterNodes<'a> = std::collections::hash_map::Keys<'a, Node, AHashSet<EdgeID>
 ///   memory consumption.
 /// 
 /// # User Interaction
-/// The user communicates via hyperedges, not `EdgeID`, meaning that he will provide a concrete set of nodes whenever he  
+/// The user communicates via hyperedges, not `EdgeID`'s, meaning that he will provide a concrete set of nodes whenever he  
 /// calls a method which requires a hyperedge. Internally, the hypergraph computes the `EdgeID` for the hyperedge provided,  
 /// and operates on that ID. 
 pub struct Hypergraph {
@@ -152,7 +147,7 @@ impl Hypergraph {
     /// # Returns
     /// `usize` - Order of the hypergraph.
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(1)`
     pub fn get_num_nodes(&self) -> usize {
         self.incidence_list.len()
@@ -163,7 +158,7 @@ impl Hypergraph {
     /// # Returns
     /// - `usize` - Size of the hypergraph.
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(1)`
     pub fn get_num_edges(&self) -> usize {
         self.edge_list.len()
@@ -177,12 +172,32 @@ impl Hypergraph {
     /// # Returns
     /// - `usize` - The number of hyperedges.
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(m)`, where `m` denotes the number of hyperedges of the hypergraph.
     pub fn get_num_edges_order(&self, order: usize) -> usize {
         let mut res = 0;
         for (_, edge) in self.edge_list.iter() {
-            if (*edge.nodes).borrow().len() == order {
+            if edge.nodes.len() == order {
+                res += 1;
+            }
+        }
+        res
+    }
+
+    /// Returns the number of hyperedges with an order less then or equal to the one provided.
+    ///
+    /// # Parameters
+    /// - `order` : `usize` - Order of interest.
+    ///
+    /// # Returns
+    /// - `usize` - The number of hyperedges.
+    ///
+    /// # Performance
+    /// - `O(m)`, where `m` denotes the number of hyperedges of the hypergraph.
+    pub fn get_num_edges_up_to(&self, order: usize) -> usize {
+        let mut res = 0;
+        for (_, edge) in self.edge_list.iter() {
+            if edge.nodes.len() <= order {
                 res += 1;
             }
         }
@@ -197,7 +212,7 @@ impl Hypergraph {
     /// # Returns
     /// - `Option<f64>` - `Some` weight of the hyperedge. Returns `None` if the hyperedge is not in the hypergraph.
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(1)`
     pub fn get_weigth(&self, edge: &Vec<Node>) -> Option<f64> {
         let edge_id = Self::compute_edge_id(edge);
@@ -220,7 +235,7 @@ impl Hypergraph {
     /// - `Result<f64, ()>` : `Ok(f64)`, containing the previous weight of the hyperedge, if it exists. Returns `Err(())` if the   
     /// specified hyperedge is not found.
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(1)`
     pub fn set_weight(&mut self, edge: &Vec<Node>, new_weight: f64) -> Result<f64, ()> {
         let edge_id = Self::compute_edge_id(edge);
@@ -242,7 +257,7 @@ impl Hypergraph {
     /// # Returns
     /// - `Option<Vec<f64>>` - `Some` list with the weights if there are hyperedges; returns `None` if the hypergraph has no hyperedges.
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(m)`, where `m` is the number of hyperedges of the hypergraph.
     pub fn get_weights(&self) -> Option<Vec<f64>> {
         if self.edge_list.is_empty() {
@@ -267,13 +282,13 @@ impl Hypergraph {
     /// # Returns
     /// - `Option<Vec<f64>>` - `Some` list with the weights of hyperedges with the given order; `None` if no such hyperedges exist.
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(m)`, where `m` is the number of hyperedges of the hypergraph.
     pub fn get_weights_order(&self, order: usize) -> Option<Vec<f64>> {
         let mut res = Vec::new();
         // O(m)
         self.edge_list.values().for_each(|hyperedge| {
-            if (*hyperedge.nodes).borrow().len() == order {
+            if hyperedge.nodes.len() == order {
                 res.push(hyperedge.weight);
             }
         });
@@ -292,7 +307,7 @@ impl Hypergraph {
     /// - `Option<Vec<usize>>` - `Some` list with the orders of all hyperedges if there are hyperedges; `None` if  
     /// the hypergraph is empty.
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(m)`, where `m` denotes the number of hyperedges.
     pub fn get_orders(&self) -> Option<Vec<usize>> {
         if self.edge_list.is_empty() {
@@ -301,7 +316,7 @@ impl Hypergraph {
             let mut res = Vec::new();
             // O(m)
             self.edge_list.values().for_each(|hyperedge| {
-                res.push((*hyperedge.nodes).borrow().len());
+                res.push(hyperedge.nodes.len());
             });
             Some(res)
         }
@@ -312,7 +327,7 @@ impl Hypergraph {
     /// # Returns
     /// - `usize` - The max order.
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(m)`.
     pub fn max_order(&self) -> usize {
         match self.get_orders() {
@@ -322,18 +337,54 @@ impl Hypergraph {
     }
 
     /// `type Node = i64`  
-    /// `type EdgeID = u64`
-    /// `type IterNodes<'a> = std::collections::hash_map::Keys<'a, Node, AHashSet<EdgeID>>`   
     ///
-    /// Gives an iterator through all the nodes of the hypergraph.
+    /// Gives a list with all the nodes of the hypergraph.
     ///
     /// # Returns
-    /// - `IterNodes` - The iterator.
+    /// - `Vec<Node>` - The list containing the nodes.
     ///
-    /// # Complexity
-    /// - `O(1)`.
-    pub fn get_nodes(&self) -> IterNodes {
-        self.incidence_list.keys()
+    /// # Performance
+    /// - `O(n)`, where `n` is the number of nodes of the hypergraph.
+    pub fn get_nodes(&self) -> Vec<Node>  {
+        let mut res = Vec::new();
+        self.incidence_list.keys().for_each(|node_id| {
+            res.push(*node_id);
+        });
+        res 
+    }
+
+    /// Returns a list with the hyperedges of the hypergraph.
+    /// 
+    /// # Returns 
+    /// - `Vec<Hyperedge>` - The list with the copy of the hyperedges, with their weight.
+    /// 
+    /// # Performance 
+    /// - `O(n*m)`, where `n` and `m` are the number nodes and hyperedges, respectively, of the hypergraph.
+    pub fn get_edges(&self) -> Vec<Hyperedge> {
+        let mut res = Vec::new();
+
+        self.edge_list.values().for_each(|x| {
+            res.push(x.clone());
+        });
+        res 
+    }
+
+    /// Returns a list with the hyperedges of the hypergraph with a specific order.
+    /// 
+    /// # Returns 
+    /// - `Vec<Hyperedge>` - The list with the copy of the hyperedges, with their weight.
+    /// 
+    /// # Performance 
+    /// - `O(n*m)`, where `n` and `m` are the number nodes and hyperedges, respectively, of the hypergraph.
+    pub fn get_edges_with_order(&self, order: usize) -> Vec<Hyperedge> {
+        let mut res = Vec::new();
+
+        self.edge_list.values().for_each(|x| {
+            if x.nodes.len() == order {
+                res.push(x.clone());
+            }
+        }); 
+        res 
     }
 
     /// `type Node = i64`  
@@ -347,7 +398,7 @@ impl Hypergraph {
     /// - `Option<Vec<Node>>` - `Some(nodes)` containing the list of neighbors of `node`. Returns `None` if the node   
     /// provided is not in the hypergraph.  
     ///
-    /// # Complexity  
+    /// # Performance  
     /// - `O(n*m)`, where `n` and `m` are the number nodes and hyperedges, respectively, of the hypergraph.
     pub fn get_neighbors(&self, node: Node) -> Option<Vec<Node>> {
         match self.incidence_list.get(&node) {
@@ -356,7 +407,7 @@ impl Hypergraph {
 
                 // O(m)
                 for edge_id in incidence_list.iter() {
-                    let edge_now = (*self.edge_list.get(edge_id).unwrap().nodes).borrow();
+                    let edge_now = &self.edge_list.get(edge_id).unwrap().nodes;
                     // O(n)
                     edge_now.iter().for_each(|v| {
                         res.insert(*v);
@@ -385,7 +436,7 @@ impl Hypergraph {
     /// - `Option<Vec<Node>>` - `Some(nodes)` containing the list of neighbors of `node`, which are incident with at   
     /// least one hyperedge with the provided order. Returns `None` if `node` is not in the hypergraph.  
     ///
-    /// # Complexity  
+    /// # Performance  
     /// - `O(n*m)`, where `n` and `m` are the number nodes and hyperedges, respectively, of the hypergraph.
     pub fn get_neighbors_with_order(&self, node: Node, order: usize) -> Option<Vec<Node>> {
         match self.incidence_list.get(&node) {
@@ -394,7 +445,7 @@ impl Hypergraph {
 
                 // O(m)
                 for edge_id in incidence_list.iter() {
-                    let edge_now = (*self.edge_list.get(edge_id).unwrap().nodes).borrow();
+                    let edge_now = &self.edge_list.get(edge_id).unwrap().nodes;
                     if order == edge_now.len() {
                         // O(n)
                         edge_now.iter().for_each(|v| {
@@ -423,9 +474,9 @@ impl Hypergraph {
     /// - `Option<Vec<Ref<Vec<Node>>>>` : `Some(edges)` containing immutable references to the hyperedges which are incident  
     /// to the given `node`. Returns `None` if the node does not exist in the hypergraph.
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(m)`, where `m` is the number of hyperedges of the hyperegraph..
-    pub fn get_incident_edges(&self, node: Node) -> Option<Vec<Ref<Vec<Node>>>> {
+    pub fn get_incident_edges(&self, node: Node) -> Option<Vec<&Vec<Node>>> {
         match self.incidence_list.get(&node) {
             Some(incidence_list) => {
                 let mut res = Vec::new();
@@ -435,7 +486,7 @@ impl Hypergraph {
                     let hyperedge = self.edge_list.get(edge_id).unwrap();
 
                     // O(1)
-                    res.push((*hyperedge.nodes).borrow())
+                    res.push(&hyperedge.nodes)
                 });
                 Some(res)
             }
@@ -455,24 +506,20 @@ impl Hypergraph {
     /// - `Option<Vec<Ref<Vec<Node>>>>` : `Some(edges)` containing immutable references to the hyperedges that have the  
     /// specified `order` and are incident to the given `node`. Returns `None` if the node does not exist in the hypergraph.
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(m)`, where `m` is the number of hyperedges of the hyperegraph..
-    pub fn get_incident_edges_with_order(
-        &self,
-        node: Node,
-        order: usize,
-    ) -> Option<Vec<Ref<Vec<Node>>>> {
+    pub fn get_incident_edges_with_order(&self, node: Node, order: usize) -> Option<Vec<&Vec<Node>>> {
         match self.incidence_list.get(&node) {
             Some(incidence_list) => {
                 let mut res = Vec::new();
 
                 // O(m)
                 incidence_list.iter().for_each(|edge_id| {
-                    if (*self.edge_list.get(edge_id).unwrap().nodes).borrow().len() == order {
+                    if (&self.edge_list.get(edge_id).unwrap().nodes).len() == order {
                         let hyperedge = self.edge_list.get(edge_id).unwrap();
 
                         // O(1)
-                        res.push((*hyperedge.nodes).borrow())
+                        res.push(&hyperedge.nodes)
                     }
                 });
                 Some(res)
@@ -491,7 +538,7 @@ impl Hypergraph {
     /// # Returns
     /// - `()`
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(1)`
     pub fn add_node(&mut self, node: Node) {
         if !self.incidence_list.contains_key(&node) {
@@ -509,7 +556,7 @@ impl Hypergraph {
     /// # Returns
     /// - `()`
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(n)`, where `n` is the number of nodes provided.
     pub fn add_nodes(&mut self, nodes: &[Node]) {
         for node in nodes.iter() {
@@ -522,7 +569,7 @@ impl Hypergraph {
     /// # Returns
     /// - `bool` - `true` if the hypergraph is weighted, `false` otherwise.
     ///
-    /// # Complexity  
+    /// # Performance  
     /// - `O(1)`
     pub fn is_weighted(&self) -> bool {
         self.weighted
@@ -538,7 +585,7 @@ impl Hypergraph {
     /// # Returns
     /// - `bool` : `true` if `edge` is in the hypergraph, `false` otherwise.
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(1)`
     pub fn check_edge(&self, edge: &Vec<Node>) -> bool {
         let edge_id = Self::compute_edge_id(edge);
@@ -553,7 +600,7 @@ impl Hypergraph {
     /// # Returns
     /// - `bool` : `true` if the node is in the hypergraph, `false` otherwise.  
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(1)`
     pub fn check_node(&self, node: Node) -> bool {
         self.incidence_list.contains_key(&node)
@@ -570,7 +617,7 @@ impl Hypergraph {
     /// # Returns
     /// - `()`
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(n)`, where `n` is the length of the hyperedge.
     pub fn add_edge(&mut self, edge: &Vec<Node>) {
         self.compute_add_edge(&edge.to_vec(), 0_f64);
@@ -591,7 +638,7 @@ impl Hypergraph {
     /// # Returns
     /// - `()`
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(n)`, where `n` is the length of the hyperedge.
     pub fn add_edge_weighted(&mut self, edge: &Vec<Node>, mut weight: f64) {
         if !self.weighted {
@@ -615,7 +662,7 @@ impl Hypergraph {
     /// # Returns
     /// - `()`
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(l*n)`, where `l` is the length of `edges`, `n` is the number of nodes.
     pub fn add_edges(&mut self, edges: &[Vec<Node>]) {
         for edge in edges.iter() {
@@ -644,7 +691,7 @@ impl Hypergraph {
     /// # Returns
     /// - `()`
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(n*m)`, where `n` is the max length of an edge, `m` is the number of hyperedges.
     pub fn add_edges_weighted(&mut self, edges: &[Vec<Node>], weights: &[f64]) {
         let mut index = 0;
@@ -675,7 +722,7 @@ impl Hypergraph {
     /// # Returns
     /// - `bool` - `true` if the hyperedge was in the hypergraph, `false` otherwise.
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(n)`, where `n` is the order of the hyperedge provided, ie its length.
     pub fn remove_edge(&mut self, edge: &Vec<Node>) -> bool {
         let edge_id = Self::compute_edge_id(edge);
@@ -708,7 +755,7 @@ impl Hypergraph {
     /// # Returns
     /// - `()`
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(n*l)`, where `n` is the number of nodes, `l` is the length of `edges`. We are assuming that the list provided  
     /// contains only hyperedges which are in the hypergraph.
     pub fn remove_edges(&mut self, edges: &[Vec<Node>]) {
@@ -717,9 +764,14 @@ impl Hypergraph {
             self.remove_edge(edge);
         }
     }
+
+    // =======================================================================
+    //                      We need to update the EdgeID'a        
+    // =======================================================================
     /// `type Node = i64`.    
     ///
     /// Weakly removes a node from the hypergraph.  
+    /// 
     /// Weakly deletion of node `v` from hypergraph `H = (V,E)` consists of removing `v` from `V` and from every hyperedge   
     /// `E` such that `v` is in `E`.  
     ///
@@ -731,7 +783,7 @@ impl Hypergraph {
     /// # Returns
     /// - `bool` - `true` if the node was in the hypergraph, `false` otherwise.
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(n*m)`, where `n` is the number of nodes, `m` is the number of hyperedges.
     ///
     /// # Notes   
@@ -743,23 +795,19 @@ impl Hypergraph {
             // Update incidence_list, O(1)
             let edges = self.incidence_list.remove(&node).unwrap();
 
-            // Update edge_list, O(n*m)
+            // O(m)
             for edge_id in edges.iter() {
-                // O(m)
                 // O(n)
-                let mut index_node = 0;
-                // Search the node provided, which is removed. O(n). --> If we would use a hash collection, this would be O(1)
-                let mut edge_now = (*self.edge_list.get(edge_id).unwrap().nodes).borrow_mut();
+                let mut edge_now = self.edge_list.get(edge_id).unwrap().nodes.clone();
 
-                for index in 0..edge_now.len() {
-                    if edge_now[index] == node {
-                        index_node = index;
-                        break;
-                    }
-                }
+                // O(n)
+                self.remove_edge(&edge_now);
 
-                // Removes `node` from the hyperedge, O(n)
-                edge_now.remove(index_node);
+                // O(n)
+                edge_now.retain(|x| { *x != node });
+
+                // O(n)
+                self.add_edge(&edge_now);
             }
 
             true
@@ -778,7 +826,7 @@ impl Hypergraph {
     /// # Returns
     /// - `()`
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(l*n*m)`, where `l` is the length of the list of nodes, `n` is the number of nodes, `m` is the   
     /// number of edges. We are assuming that the list provided contains only nodes which are in the hypergraph.  
     pub fn remove_nodes(&mut self, nodes: &[Node]) {
@@ -790,6 +838,9 @@ impl Hypergraph {
     /// `type Node = i64`  
     ///
     /// Strongly remove a node from the hypergraph.   
+    ///  
+    /// Strongly deletion of node `v` from hypergraph `H = (V,E)` constists of removing `v` from `V` and remove all `e` from `E`   
+    /// sucht that `v` is in `e`.
     ///
     /// If the node provided is not in the hypergraph, nothing happens for it.  
     ///
@@ -799,7 +850,7 @@ impl Hypergraph {
     /// # Returns
     /// - `bool` : `true` if the node was in the hypergraph, `false` otherwise.
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(n*m)`, where `n` and `m` are the number of nodes and the number of hyperedges in the hypergraph, respectively.
     pub fn strong_remove_node(&mut self, node: Node) -> bool {
         if !self.incidence_list.contains_key(&node) {
@@ -828,7 +879,8 @@ impl Hypergraph {
     }
     /// `type Node = i64`    
     ///
-    /// Strongly removes a list of nodes from the hypergraph.  
+    /// Strongly removes a list of nodes from the hypergraph.   
+    /// 
     /// See `Hypergraph::strong_remove_node` for more details.  
     ///
     /// If the list provided contains nodes which are not in the hypergraph, nothing happens for them.
@@ -839,13 +891,101 @@ impl Hypergraph {
     /// # Returns  
     /// - `()`  
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(l*n*m)`, where `l` is the length of the list `nodes`, `n` is the number of nodes, `m` is the   
     /// number of edges. We are assuming that the list provided contains only nodes which are in the hypergraph.
     pub fn strong_remove_nodes(&mut self, nodes: &[Node]) {
         for node in nodes.iter() {
             self.strong_remove_node(*node);
         }
+    }
+
+    /// `type Node = i64`   
+    /// 
+    /// Returns a subhypergraph induced by the nodes in the list.   
+    /// 
+    /// # Parameters
+    /// - `nodes` : `&Vec<Node>` - List of nodes to be included in the subhypergraph.
+    /// 
+    /// # Returns 
+    /// - `Self` - Induced subhypergraph.  
+    /// 
+    /// # Performance 
+    /// - `O(n*m)`, where `n` and `m` are the number of nodes and the number of hyperedges of the original hypergraph.
+    pub fn subhypergraph(&self, nodes: &Vec<Node>) -> Self {
+        let mut res = Self::new(self.weighted);
+
+        // O(n)
+        res.add_nodes(nodes);
+
+        let nodes_as_set = Self::compute_vec_to_set(nodes);
+
+        // O(m)
+        for edge in self.edge_list.values() {
+            // O(n)
+            let edge_as_set = Self::compute_vec_to_set(&edge.nodes);
+
+            // O(n)
+            if edge_as_set.is_subset(&nodes_as_set) {
+                res.add_edge_weighted(&edge.nodes, edge.weight);
+            }
+        }
+
+        res 
+    }
+
+    /// Returns a subhypergraph with only the hyperedges with a specific order.
+    /// 
+    /// # Parameters
+    /// - `nodes` : `&Vec<usize>` - List of orders.
+    /// 
+    /// # Returns 
+    /// - `Self` - Induced subhypergraph.  
+    /// 
+    /// # Performance 
+    /// - `O(n*m)`, where `n` and `m` are the number of nodes and the number of hyperedges of the original hypergraph.
+    pub fn subhypergraph_by_orders(&self, orders: &Vec<usize>, keep_nodes: bool) -> Self {
+        let mut res = Self::new(self.weighted);
+
+        if keep_nodes {
+            // O(n)
+            res.add_nodes(&self.get_nodes());
+        }
+
+        let mut orders_as_set = AHashSet::new();
+        for order in orders.iter() {
+            orders_as_set.insert(*order);
+        }
+
+        // O(m)
+        for hyperedge in self.edge_list.values() {
+            // O(1)
+            if orders_as_set.contains(&hyperedge.nodes.len()) {
+                // O(n)
+                res.add_edge_weighted(&hyperedge.nodes, hyperedge.weight);
+            }
+        }
+
+        res 
+    }
+
+    /// Returns the distribution of the orders of the hyperedges in the hypergraph.
+    /// 
+    /// # Returns 
+    /// - `AHashMap<usize, usize>` - The dictionary which stores the orders as keys, and the number of occurrences for that   
+    /// specific order as values.
+    /// 
+    /// # Performance 
+    /// - `O(m)`, where `m` is the number of hyperedges in the hypergraph.
+    pub fn distrbution_orders(&self) -> AHashMap<usize, usize> {
+        let mut res = AHashMap::new();
+
+        for hyperedge in self.edge_list.values() {
+            res.entry(hyperedge.nodes.len()).and_modify(|total: &mut usize| {
+                *total += 1;
+            }).or_insert(1);
+        }
+        res 
     }
 
     /// `type IterEdges<'a> = std::collections::hash_map::Values<'a, u64, Hyperedge>`   
@@ -857,7 +997,7 @@ impl Hypergraph {
     /// # Returns
     /// - `IterEdges` : The iterator over the hyperedges, which are stored as `Hyperedge`.
     ///
-    /// # Complexity  
+    /// # Performance  
     /// - `O(1)`
     pub fn iter_edges(&self) -> IterEdges {
         // This iterator, as specified by the lifetime symbol '_', is an iterator over borrowed values, so
@@ -872,7 +1012,7 @@ impl Hypergraph {
     /// # Returns
     /// - `Option<usize>`: `Some(usize)` if it is uniform, with the "uniform value" stored in, `None` otherwise.
     ///
-    /// # Complexity  
+    /// # Performance  
     /// - `O(m)`, where `m` is the number of hyperedges.
     pub fn is_uniform(&self) -> Option<usize> {
         if self.edge_list.len() == 0 {
@@ -880,10 +1020,10 @@ impl Hypergraph {
         } else {
             let mut edges = self.edge_list.values().into_iter();
             // Order of the "first" hyperedge in edge_list
-            let length = (*edges.next().unwrap().nodes).borrow().len();
+            let length = edges.next().unwrap().nodes.len();
 
             for edge in edges {
-                if (*edge.nodes).borrow().len() != length {
+                if edge.nodes.len() != length {
                     return None;
                 }
             }
@@ -902,6 +1042,9 @@ impl Hypergraph {
         self.edge_list.clear();
     }
 
+
+
+
     /*
     ===============================================================================
     |                       PRIVATE HELPER FUNCTIONS                              |
@@ -919,7 +1062,7 @@ impl Hypergraph {
     /// # Returns  
     /// - `()`
     ///
-    /// # Complexity
+    /// # Performance
     /// - `O(n)`, where `n` is the number of nodes.
     fn compute_add_edge(&mut self, edge: &Vec<Node>, weight: f64) {
         let edge_id = Self::compute_edge_id(edge);
@@ -928,7 +1071,7 @@ impl Hypergraph {
             // Edge not already in
 
             // Update edge_list, O(1)
-            let hyperedge = Hyperedge::new(Rc::new(RefCell::new(edge.clone())), weight);
+            let hyperedge = Hyperedge::new(edge.clone(), weight);
             self.edge_list.insert(edge_id, hyperedge);
 
             // Update incidence_list, O(n)
@@ -952,9 +1095,10 @@ impl Hypergraph {
         }
     }
 
-    /// Creates the edgeID for a Hyperedge.  
     /// `type EdgeID = u64`    
     /// `type Node = i64`
+    /// 
+    /// Effectively computes the edgeID for a Hyperedge.  
     ///
     /// # Parameters  
     /// - `edge` : `Vec<Node>` - hyperedge for which the edgeID is needed.
@@ -962,7 +1106,7 @@ impl Hypergraph {
     /// # Returns
     /// - `u64`- The computed edgeID  
     ///
-    /// # Complexity  
+    /// # Performance  
     /// - The implementation of the hashing function for `Vec<T>` is the one of the standard library, so `O(n)`, where `n` is the   
     /// length of the array. (?)
     fn compute_edge_id(edge: &Vec<Node>) -> EdgeID {
@@ -971,6 +1115,28 @@ impl Hypergraph {
         edge.hash(&mut hasher);
 
         hasher.finish()
+    }
+
+    /// `type Node = i64`  
+    /// 
+    /// Effectively computes the conversion of an array to an hashset.
+    /// 
+    /// # Parameters
+    /// - `array` : `&Vec<Node>` - Array to be converted.
+    /// 
+    /// # Returns 
+    /// - `AHashSet<Node>` - The corresponding hashset.
+    /// 
+    /// # Performance 
+    /// - `O(n)`, where `n` is the length of the array.
+    fn compute_vec_to_set(array: &Vec<Node>) -> AHashSet<Node> {
+        let mut res = AHashSet::new();
+
+        for v in array.iter() {
+            res.insert(*v);
+        }
+
+        res
     }
 }
 

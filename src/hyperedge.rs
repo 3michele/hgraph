@@ -1,9 +1,7 @@
 use super::Node;
 use std::{
-    cell::RefCell,
     fmt::{Debug, Display},
     hash::{Hash, Hasher},
-    rc::Rc,
 };
 
 /// Represents a (weighted) hyperedge in a hypergraph.  
@@ -21,7 +19,7 @@ pub struct Hyperedge {
     /// A reference-counted, mutable vector of `Node`s (node IDs) connected by this hyperedge.  
     /// This allows multiple parts of the program to share ownership of the node collection while enabling  
     /// in-place modifications when needed.
-    pub nodes: Rc<RefCell<Vec<Node>>>,
+    pub nodes: Vec<Node>,
 
     /// Optional weight for the hyperedge.
     pub weight: f64,
@@ -38,7 +36,7 @@ impl Hyperedge {
     ///
     /// # Returns  
     /// - `Self` - A new instance of `Hyperedge`.
-    pub fn new(nodes: Rc<RefCell<Vec<Node>>>, weight: f64) -> Self {
+    pub fn new(nodes: Vec<Node>, weight: f64) -> Self {
         Self { nodes, weight }
     }
 
@@ -56,20 +54,20 @@ impl Hyperedge {
 
 impl Hash for Hyperedge {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        (*(*self.nodes).borrow()).hash(state);
+        self.nodes.hash(state)
     }
 }
 
 impl PartialEq for Hyperedge {
     fn eq(&self, other: &Self) -> bool {
-        (&*((*self.nodes).borrow())).eq(&*(*other.nodes).borrow())
+        self.nodes.eq(&other.nodes)
     }
 }
 
 impl Clone for Hyperedge {
     fn clone(&self) -> Self {
         Self {
-            nodes: Rc::clone(&self.nodes),
+            nodes: self.nodes.clone(), // O(n)
             weight: self.weight,
         }
     }
@@ -79,12 +77,12 @@ impl Eq for Hyperedge {}
 
 impl Display for Hyperedge {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({:?}, {})", (*self.nodes).borrow(), self.weight)
+        write!(f, "({:?}, {})", self.nodes, self.weight)
     }
 }
 
 impl Debug for Hyperedge {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({:?}, {})", (*self.nodes).borrow(), self.weight)
+        write!(f, "({:?}, {})", self.nodes, self.weight)
     }
 }

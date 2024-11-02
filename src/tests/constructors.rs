@@ -23,7 +23,17 @@ pub fn test2() {
 
     let weights = vec![27.7_f64, 18.1, 2.7, 8.9];
 
-    let mat = Hypergraph::from_weighted(&edges, &weights);
+    let mut mat = Hypergraph::from_weighted(&edges, &weights);
+
+    println!("max order = {}", mat.max_order());
+
+    mat.add_edge_weighted(&vec![1, 6, 3, 5], 100.7);
+    mat.add_node(-3);
+    println!("distribution orders: {:?}", mat.distrbution_orders());
+
+    println!("test2: {:?}", mat);
+    mat.remove_node(-3);
+    mat.remove_node(5);
 
     println!("test2: {:?}", mat);
 }
