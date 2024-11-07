@@ -27,8 +27,8 @@ impl Display for Hypergraph {
         write!(
             f,
             "Hypergraph with {} nodes and {} edges",
-            self.get_num_nodes(),
-            self.get_num_edges()
+            self.num_nodes(),
+            self.num_edges()
         )
     }
 }
